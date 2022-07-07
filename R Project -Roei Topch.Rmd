@@ -1,0 +1,533 @@
+---
+output:
+  word_document: default
+  html_document: default
+---
+
+by:  Roei Topchi 316533488
+
+ 
+
+
+
+```
+
+------------------------------------------part1----------------------------------------
+
+3:2
+
+Year, Month, DayofMonth: date of departure
+
+DayOfWeek: day of week of departure (useful for removing weekend effects)
+
+DepTime, ArrTime: departure and arrival times (in local time, hhmm)
+
+UniqueCarrier: unique abbreviation for a carrier
+
+FlightNum: flight number
+
+TailNum: airplane tail number
+
+ActualElapsedTime: elapsed time of flight, in minutes
+
+AirTime: flight time, in minutes
+
+ArrDelay, DepDelay: arrival and departure delays, in minutes
+
+Origin, Dest origin and destination airport codes
+
+Distance: distance of flight, in miles
+
+TaxiIn, TaxiOut: taxi in and out times in minutes
+
+Cancelled: cancelled indicator: 1 = Yes, 0 = No
+
+CancellationCode: reason for cancellation: A = carrier, B = weather, C = national air system, D = security
+
+Diverted: diverted indicator: 1 = Yes, 0 = No
+
+
+
+```{r}
+install.packages("hflights")
+require(tidyverse)
+require(hflights)
+flights <- hflights
+library(lubridate)
+require(lubridate)
+require(hflights)
+flights = hflights
+```
+
+
+3:1,3
+
+```{r}
+flights = hflights
+glimpse(flights)
+nrow(flights)
+ncol(flights)
+glimpse(flights)
+sapply(flights,function(x) typeof(x))
+
+
+```
+
+4a:1,2
+
+```{r}
+flights %>% select(UniqueCarrier, contains("Delay"))
+
+relevant_cols = c("Year","Month","Day","ArrTime")
+flights %>% select(one_of(relevant_cols))
+
+
+```
+
+4a:3
+```{r}
+
+lut <- c("AA" = "American", "AS" = "Alaska", "B6" = "jetblue", "CO" = "Continental", 
+         "DL" = "Delta", "OO" = "skywest", "UA" = "United", "US" = "US_Airways", 
+         "WN" = "Southwest", "EV" = "Atlantic_Southeast", "F9" = "Frontier", 
+         "FL" = "airtran", "MQ" = "American_Eagle", "XE" = "expressjet", "YV" = "Mesa")
+
+
+flights=flights %>% mutate(UniqueCarrier_name=flights$UniqueCarrier <- lut[flights$UniqueCarrier])
+
+```
+
+
+
+4a:4
+```{r}
+
+flights <- flights %>% mutate(CancellationCode=replace(CancellationCode ,CancellationCode =="","E"))
+
+flights %>% select(CancellationCode)
+```
+4a:5,6
+```{r}
+
+flights<-flights %>%  mutate(date = make_date(Year, Month, DayofMonth))
+
+class(date)
+flights=flights %>% 
+relocate(date, .after=DayofMonth)
+flights %>% select(date)
+  
+```
+
+4:7,8
+```{r}
+  
+flights<-flights %>% mutate(ActualGroundTime = ActualElapsedTime-AirTime)
+
+flights<-flights %>% mutate(AverageSpeed = Distance/AirTime*60) 
+   
+
+```
+
+
+4a:6,7,8
+
+```{r}
+
+flights=flights %>% 
+relocate(date, .after=DayofMonth)
+  flights
+flights<-flights %>% mutate(ActualGroundTime = ActualElapsedTime-AirTime)
+
+flights<-flights %>% mutate(AverageSpeed = Distance/AirTime*60) 
+   
+
+```
+
+4b:1,2
+```{r}
+
+sapply(flights, function(x)sum(is.na(x)))
+
+
+
+flights %>% group_by(Origin,Dest) %>% 
+mutate(ActualElapsedTime=replace(
+  ActualElapsedTime,
+    is.na(ActualElapsedTime),mean(ActualElapsedTime,na.rm=T)))
+  
+
+
+
+```
+
+4c:1,2,3,4
+
+```{r}
+
+flights %>% filter(Distance> 500)
+
+flights %>% filter(UniqueCarrier_name== c('jetblue', 'Southwest', 'Delta'))
+
+flights %>% filter(ArrTime > 2200|DepTime< 500)
+
+flights %>% filter(is.na(DepTime),is.na(ArrTime))
+
+```
+
+4D:1,2
+```{r}
+flights %>% arrange(DepDelay)
+flights %>% arrange(UniqueCarrier , desc(DepDelay)) 
+
+
+```
+4E
+```{r}
+flights %>% group_by(UniqueCarrier) %>% 
+    summarise(across(Distance,c(min=min,max=max))) 
+
+
+
+flights %>% group_by(Origin,Dest) %>%select(-Year,-Month,-DayofMonth) %>% 
+  summarise(across(
+  .cols= where(is.numeric),
+  .fns =c(max=function(x)max(x,na.rm=T),min=function(x)min(x,na.rm = T),Mean=function(x)mean(x,na.rm=T),median=function(x)median(x,na.rm=T))))
+
+```
+4F
+
+```{r}
+
+numeric_hflights_stats <- flights %>% group_by(Origin,Dest) %>%
+  summarise(across(
+  .cols= where(is.numeric),
+  .fns =c(max=function(x)max(x,na.rm=T),min=function(x)min(x,na.rm = T),Mean=function(x)mean(x,na.rm=T),median=function(x)median(x,na.rm=T))))
+
+
+
+
+
+character_hflights_stats <- flights %>% group_by(Origin,Dest) %>%
+  summarise(across(
+  .cols= where(is.character),
+  .fns =c(n_distinct,first,last)))
+
+
+numeric_hflights_stats %>% left_join(character_hflights_stats,by=c("Origin"="Origin","Dest"="Dest"))
+
+```
+
+
+5:1,2,3
+
+```{r}
+flights %>% group_by(UniqueCarrier) %>% distinct(TailNum) %>% count(UniqueCarrier)
+
+mean(flights$ArrDelay, na.rm=TRUE)
+
+tally(flights,CancellationCode=='B')
+
+
+```
+
+5:1,2,3
+```{r}
+flights %>% distinct(Dest) %>% nrow
+flights %>% count(Dest) %>% top_n(1)
+
+mean(flights$ArrDelay, na.rm=TRUE)
+
+
+
+```
+
+5:4
+```{r}
+z=
+flights %>% filter(Dest=="DAL") %>% count(Cancelled!=0)
+z[2,2]/z[1,2]*100
+
+```
+5:5
+```{r}
+flights %>% filter(Distance>800) %>% filter(CancellationCode==c('A','B','C','D')) %>% count(CancellationCode) %>% arrange(desc(n))
+
+```
+
+5:6
+```{r}
+flights %>% distinct(Dest) %>% nrow
+flights %>% count(Dest) %>% top_n(1)
+```
+
+
+5:7
+```{r}
+flights %>% group_by(TailNum) %>%  summarise(sum(Cancelled)) %>% top_n(5) 
+```
+
+5:8
+```{r}
+flights %>% group_by(Dest)  %>% summarise(sum(DepDelay))%>% top_n(1)
+```
+
+5:9
+```{r}
+
+Month <- c(1:12)
+
+season1 <- c("winter","winter","winter","none","none","summer","summer","summer","none","none","none","none")
+Month1 <- data.frame(cbind(Month,season1))
+Month1 <- as.integer(Month1$Month)
+Month1 <- data.frame(Month1)
+season= cbind(Month1,season1)
+flights %>% left_join(season,by=c("Month"="Month1")) %>% filter(season1!="none") %>%  group_by(season1) %>% summarise(avg_speed=mean(Distance/AirTime,na.rm=T))
+
+```
+
+
+
+6:1,2,3,4
+
+```{r}
+install.packages(diamonds)
+require(diamonds)
+require(ggplot2)
+diamonds <- diamonds
+
+diamonds <-  diamonds %>% sample_n(1000)
+
+
+ggplot(diamonds, aes(x=carat, y=price,color=cut) )+geom_smooth()
+
+
+ggplot(diamonds)+
+  geom_point(aes(x=carat, y=price,color=cut))+
+  geom_smooth(aes(x=carat, y=price),color="red")+
+  labs(title="Diamond price per carat",x="Carat Size",y='Price$')
+```
+
+6:5
+```{r}
+ggplot(diamonds)+
+  geom_point(aes(x=carat, y=price,color=cut))+
+  labs(title="Diamond price per carat",x="Carat Size",y='Price$')+
+facet_grid(clarity~color)
+
+
+```
+
+
+6b:1,2,3
+```{r}
+
+hist(diamonds$carat)
+
+ggplot(diamonds, aes(x=carat ,colour=cut)) +
+    geom_histogram() 
+    
+
+ggplot(diamonds, aes(x=cut )) +
+    geom_histogram() 
+    
+plot(diamonds$cut)
+
+```
+
+----------------------------------------part2------------------------------------------
+
+ 
+we have used data set which contains all the transactions occurring between 01/12/2010 and 09/12/2011 for a UK-based and registered non-store online retail.The company mainly sells unique all-occasion gifts. Many customers of the company are wholesalers.
+
+https://archive.ics.uci.edu/ml/machine-learning-databases/00352/
+
+
+
+
+InvoiceNo: Invoice number. Nominal, a 6-digit integral number uniquely assigned to each transaction. If this code starts with letter 'c', it indicates a cancellation.
+StockCode: Product (item) code. Nominal, a 5-digit integral number uniquely assigned to each distinct product.
+Description: Product (item) name. Nominal.
+Quantity: The quantities of each product (item) per transaction. Numeric.
+InvoiceDate: Invice Date and time. Numeric, the day and time when each transaction was generated.
+UnitPrice: Unit price. Numeric, Product price per unit in sterling.
+CustomerID: Customer number. Nominal, a 5-digit integral number uniquely assigned to each customer.
+Country: Country name. Nominal, the name of the country where each customer resides.
+
+
+
+C:\Users\roeit\Downloads\Online.xlsx
+
+```{r}
+
+
+require(ggcharts)
+require(tidyverse)
+
+
+o <- Online
+
+o <- o %>% mutate(revenue=Quantity*UnitPrice)
+o <- o %>% mutate(month=months(InvoiceDate))
+```
+some statistic
+```{r}
+
+skimr::skim(o)
+glimpse(o)
+summary(o)
+
+```
+we check the type of the variabels
+```{r}
+
+sapply(o,function(x) typeof(x))
+
+```
+
+there are 135080 missing customerid and 1454 missing Description
+```{r}
+sapply(o, function(x)sum(is.na(x)))
+```
+
+the number of orders that made 25900 
+```{r}
+o %>% distinct(InvoiceNo) %>% nrow()
+
+```
+ 
+some items have some name,
+the item that have the most of quantity sold is "SMALL POPCORN HOLDER"/				
+"POPCORN HOLDER"
+
+```{r}
+
+o %>% group_by(StockCode) %>% summarise(sum=sum(Quantity)) %>% arrange(desc(sum)) %>% top_n(1)
+
+o %>% filter(StockCode==22197) %>% distinct(Description)
+
+```
+
+
+we have found the total orders by country
+we have found the total revenue by country
+9288 orders has been canceld
+
+```{r}
+
+ o %>% group_by(Country) %>% count(Country) %>% ungroup()  %>% arrange(desc(n)) %>% top_n(5)
+
+o %>% group_by(Country) %>% mutate(money=Quantity*UnitPrice) %>% summarise(money=sum(money)) %>% ungroup() %>%    arrange(desc(money)) 
+
+o%>% filter( str_detect(InvoiceNo, "C")) %>% nrow()
+
+
+```
+
+The biggest amount of items in 1 invoice,the order came from united kingdom and have 1114 diffrent items
+
+```{r}
+
+o %>% count(InvoiceNo) %>%distinct  %>% arrange(desc(n)) %>% top_n(1,n)
+
+o %>% filter(InvoiceNo==573585) %>% select(Country) %>% distinct()
+
+```
+
+the sum of revenue that came from united kingdom is 83%
+
+```{r}
+
+other <- o %>% filter(Country!="United Kingdom") %>% summarise(sum(revenue))
+uk <- o%>% filter(Country=="United Kingdom") %>%  summarise(sum(revenue))
+total <- o %>% summarise(sum(revenue))
+o %>% summarise(uk/total*100)
+  
+```
+
+we have tried to find the revenue by country,we saw that the most revenue by far came from uk.
+
+```{r}
+ggplot(data=o,aes(x=Country, y=revenue, fill= revenue))+ geom_bar(width = 1.5, stat="identity") + theme(axis.text.x = element_text(angle=90, hjust=,vjust = 0.5,size=8),legend.position="top") + scale_y_log10()+ xlab("Country") + ylab("revenue")
+```
+we decided to try again without uk,the result show us that the most revenue came from 5 countries: EIRE,France,Germany,Australia 
+```{r}
+
+z <- o  %>% group_by(Country) %>% summarise(revenue=sum(revenue)) %>% filter(Country != "United Kingdom")
+  ggplot(data=z,aes(x=Country, y=revenue, fill= revenue))+ geom_bar(width = 1.5, stat="identity") + theme(axis.text.x = element_text(angle=90, hjust=,vjust = 0.5,size=8),legend.position="top") + scale_y_log10()+ xlab("Country") + ylab("revenue")
+```
+
+we tried to find which country has the most revnue by  month beside uk,we can see that netheland have 6 months on the top revenue.
+```{r}
+install.packages("ggcharts")
+require(ggcharts)
+require(ggplot2)
+
+o %>% filter(Country!="United Kingdom" ) %>% select(Country,month,revenue) %>% group_by(Country,month) %>% summarise(sum=sum(revenue/1000)) %>% ungroup() %>% bar_chart(x = Country, y = sum, facet = month, top_n = 5)+labs(
+    x = "Country without uk",
+    y = "Revenue in k",
+    title = "The top 5 country without uk in revenue by months")
+```
+
+
+
+we can see that most of the items that are sold is in small Quantity (small quantity for us is less than 50),from this data we can guess that the cutomers are only the middelman and they dosent have any idea to mange a inventory (type of "dropshipping")
+```{r}
+
+t <- o %>% filter(Quantity<50 & Quantity>0 &   Country==(c("EIRE","France","Germany","Netherlands","Australia") ))
+
+ggplot(t, aes(x=InvoiceNo, y=t$Quantity,color=t$Country)) +
+  geom_point(size=2, shape=23)  +labs(title="Quantity by Unitprice country",x="Unit Price",y='Quantity')
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
